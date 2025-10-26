@@ -39,7 +39,6 @@ A **Model Context Protocol (MCP)** server for **Azure DevOps Server 7.1** that p
    ```env
    AZURE_DEVOPS_URL=https://your-devops-server.com
    AZURE_DEVOPS_PAT=your_personal_access_token
-   AZURE_DEVOPS_ORGANIZATION=YourOrganization
    AZURE_DEVOPS_PROJECT=YourProject
    GDPR_BLOCKED_WORK_ITEM_TYPES=Bug
    MAX_FILE_SIZE_MB=1
@@ -102,7 +101,6 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
       "env": {
         "AZURE_DEVOPS_URL": "https://your-server.com",
         "AZURE_DEVOPS_PAT": "your_pat_here",
-        "AZURE_DEVOPS_ORGANIZATION": "YourOrg",
         "AZURE_DEVOPS_PROJECT": "YourProject"
       }
     }
@@ -285,9 +283,8 @@ All GDPR checks are logged for audit purposes.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AZURE_DEVOPS_URL` | Yes | - | Azure DevOps Server URL |
+| `AZURE_DEVOPS_URL` | Yes | - | Azure DevOps Server URL (includes organization) |
 | `AZURE_DEVOPS_PAT` | Yes | - | Personal Access Token |
-| `AZURE_DEVOPS_ORGANIZATION` | Yes | - | Organization name |
 | `AZURE_DEVOPS_PROJECT` | Yes | - | Project name |
 | `GDPR_BLOCKED_WORK_ITEM_TYPES` | No | `Bug` | Comma-separated list of blocked types |
 | `MAX_FILE_SIZE_MB` | No | `1` | Maximum file size for retrieval (MB) |

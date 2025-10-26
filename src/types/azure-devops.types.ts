@@ -4,7 +4,6 @@ import type { WorkItem, WorkItemRelation } from 'azure-devops-node-api/interface
 export interface Config {
   azureDevOpsUrl: string;
   azureDevOpsPat: string;
-  azureDevOpsOrganization: string;
   azureDevOpsProject: string;
   gdprBlockedWorkItemTypes: string[];
   maxFileSizeBytes: number;

@@ -40,7 +40,6 @@ export function loadConfig(): Config {
   try {
     const azureDevOpsUrl = getRequiredEnvVar('AZURE_DEVOPS_URL');
     const azureDevOpsPat = getRequiredEnvVar('AZURE_DEVOPS_PAT');
-    const azureDevOpsOrganization = getRequiredEnvVar('AZURE_DEVOPS_ORGANIZATION');
     const azureDevOpsProject = getRequiredEnvVar('AZURE_DEVOPS_PROJECT');
 
     const gdprBlockedTypesStr = getOptionalEnvVar('GDPR_BLOCKED_WORK_ITEM_TYPES', 'Bug');
@@ -52,7 +51,6 @@ export function loadConfig(): Config {
     const config: Config = {
       azureDevOpsUrl: azureDevOpsUrl.replace(/\/$/, ''),
       azureDevOpsPat,
-      azureDevOpsOrganization,
       azureDevOpsProject,
       gdprBlockedWorkItemTypes,
       maxFileSizeBytes,
@@ -60,7 +58,6 @@ export function loadConfig(): Config {
 
     console.log('[Config] Configuration loaded successfully');
     console.log(`[Config] Azure DevOps URL: ${config.azureDevOpsUrl}`);
-    console.log(`[Config] Organization: ${config.azureDevOpsOrganization}`);
     console.log(`[Config] Project: ${config.azureDevOpsProject}`);
     console.log(`[Config] GDPR Blocked Types: ${config.gdprBlockedWorkItemTypes.join(', ')}`);
     console.log(`[Config] Max File Size: ${(config.maxFileSizeBytes / 1024 / 1024).toFixed(2)} MB`);
