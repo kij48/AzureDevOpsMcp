@@ -1,0 +1,77 @@
+graph TB
+    subgraph "AI Agent Layer"
+        A[Claude/Copilot]
+    end
+
+    subgraph "MCP Server"
+        subgraph "MCP Tools Layer"
+            B1[Work Item Tools]
+            B2[Pull Request Tools]
+            B3[File Tools]
+        end
+
+        subgraph "Business Logic Layer"
+            C1[GDPR Validator]
+            C2[Error Handler]
+            C3[Data Transformers]
+        end
+
+        subgraph "Services Layer"
+            D1[Work Item Service]
+            D2[Pull Request Service]
+            D3[Repository Service]
+            D4[Azure DevOps Client]
+        end
+
+        subgraph "Configuration"
+            E1[Config Manager]
+            E2[Environment Variables]
+        end
+    end
+
+    subgraph "External Systems"
+        F1[Azure DevOps Server 7.1]
+        F2[Work Item Tracking API]
+        F3[Git API]
+    end
+
+    A -->|MCP Protocol| B1
+    A -->|MCP Protocol| B2
+    A -->|MCP Protocol| B3
+
+    B1 --> C1
+    B1 --> C2
+    B2 --> C2
+    B3 --> C2
+
+    B1 --> D1
+    B2 --> D2
+    B3 --> D3
+
+    D1 --> C1
+    D1 --> C3
+    D2 --> C3
+    D3 --> C3
+
+    D1 --> D4
+    D2 --> D4
+    D3 --> D4
+
+    D4 --> E1
+    E1 --> E2
+
+    D4 -->|azure-devops-node-api| F2
+    D4 -->|azure-devops-node-api| F3
+    F2 --> F1
+    F3 --> F1
+
+    style A fill:#e1f5ff
+    style B1 fill:#fff4e1
+    style B2 fill:#fff4e1
+    style B3 fill:#fff4e1
+    style C1 fill:#ffe1e1
+    style D1 fill:#e1ffe1
+    style D2 fill:#e1ffe1
+    style D3 fill:#e1ffe1
+    style D4 fill:#e1ffe1
+    style F1 fill:#f0e1ff

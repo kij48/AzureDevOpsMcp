@@ -1,0 +1,51 @@
+flowchart TD
+    Start([AI Agent Request]) --> Input[Tool Call: get_work_item id=12345]
+
+    Input --> LoadConfig[Load Configuration]
+    LoadConfig --> ValidateConfig{Config Valid?}
+    ValidateConfig -->|No| ConfigError[Return Configuration Error]
+    ValidateConfig -->|Yes| InitClient[Initialize Azure DevOps Client]
+
+    InitClient --> ConnectAPI[Connect to Work Item API]
+    ConnectAPI --> FetchWI[Fetch Work Item by ID]
+
+    FetchWI --> APIError{API Error?}
+    APIError -->|Yes| ReturnError[Return NotFoundError]
+    APIError -->|No| GDPRCheck[GDPR Validator Check]
+
+    GDPRCheck --> IsBlocked{Work Item Type Blocked?}
+    IsBlocked -->|Yes| GDPRError[Return GDPRComplianceError]
+    IsBlocked -->|No| Transform[Transform Work Item Data]
+
+    Transform --> NeedChildren{Include Children?}
+    NeedChildren -->|Yes| FetchChildren[Get Child Work Items Recursively]
+    NeedChildren -->|No| NeedCommits{Include Commits?}
+
+    FetchChildren --> ValidateChildren[Validate Each Child with GDPR]
+    ValidateChildren --> BuildTree[Build Work Item Tree]
+    BuildTree --> NeedCommits
+
+    NeedCommits -->|Yes| GetDirectCommits[Get Directly Linked Commits]
+    NeedCommits -->|No| BuildResponse[Build Response Object]
+
+    GetDirectCommits --> GetPRs[Find Associated Pull Requests]
+    GetPRs --> GetPRCommits[Get Commits from Each PR]
+    GetPRCommits --> Dedupe[Deduplicate Commits by ID]
+    Dedupe --> SortCommits[Sort by Date Newest First]
+    SortCommits --> BuildResponse
+
+    BuildResponse --> ReturnSuccess[Return Work Item Details]
+
+    ConfigError --> End([End])
+    ReturnError --> End
+    GDPRError --> End
+    ReturnSuccess --> End
+
+    style Start fill:#e1f5ff
+    style End fill:#e1f5ff
+    style GDPRCheck fill:#ffe1e1
+    style IsBlocked fill:#ffe1e1
+    style GDPRError fill:#ffcccc
+    style ReturnSuccess fill:#ccffcc
+    style ConfigError fill:#ffcccc
+    style ReturnError fill:#ffcccc

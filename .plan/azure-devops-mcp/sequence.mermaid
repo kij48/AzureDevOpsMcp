@@ -1,0 +1,62 @@
+sequenceDiagram
+    participant Agent as AI Agent (Claude)
+    participant MCP as MCP Server
+    participant Tools as Work Item Tools
+    participant GDPR as GDPR Validator
+    participant Service as Work Item Service
+    participant Client as Azure DevOps Client
+    participant API as Azure DevOps Server 7.1
+
+    Agent->>MCP: Request: get_work_item(id=12345)
+    MCP->>Tools: Route to workItemTools handler
+    Tools->>Service: getWorkItem(12345)
+
+    Service->>Client: getWorkItemTrackingApi()
+    Client->>API: GET /wit/workitems/12345
+
+    API-->>Client: Work Item Data
+    Client-->>Service: Raw Work Item
+
+    Service->>GDPR: validate(workItem)
+    alt Work Item Type is "Bug"
+        GDPR-->>Service: throw GDPRComplianceError
+        Service-->>Tools: Error: GDPR blocked
+        Tools-->>MCP: Error Response
+        MCP-->>Agent: "Work item blocked by GDPR policy"
+    else Work Item Type allowed
+        GDPR-->>Service: Validation passed
+
+        Service->>Service: Transform data to WorkItemDetails
+
+        opt Include Children
+            Service->>Client: getWorkItemTrackingApi()
+            loop For each child relation
+                Client->>API: GET /wit/workitems/{childId}
+                API-->>Client: Child Work Item
+                Client->>GDPR: validate(child)
+                GDPR-->>Client: OK or Error
+            end
+        end
+
+        opt Include Commits
+            Service->>Client: getGitApi()
+            loop For each commit relation
+                Client->>API: GET /git/repositories/{repoId}/commits/{commitId}
+                API-->>Client: Commit Data
+            end
+
+            loop For each PR relation
+                Client->>API: GET /git/repositories/{repoId}/pullRequests/{prId}/commits
+                API-->>Client: PR Commits
+            end
+
+            Service->>Service: Deduplicate commits
+        end
+
+        Service-->>Tools: WorkItemDetails + Children + Commits
+        Tools-->>MCP: Success Response
+        MCP-->>Agent: Complete Work Item Context
+    end
+
+    Note over Agent,API: All operations are read-only
+    Note over GDPR,Service: GDPR check happens before data processing
