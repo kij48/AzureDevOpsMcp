@@ -23,6 +23,8 @@ export interface WorkItemDetails {
   tags: string[];
   relations?: WorkItemRelation[];
   fields: Record<string, any>;
+  gdprBlocked?: boolean;
+  gdprMessage?: string;
 }
 
 export interface WorkItemTree {

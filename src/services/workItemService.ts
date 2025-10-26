@@ -316,6 +316,96 @@ export class WorkItemService {
     return unique;
   }
 
+  static async getMyWorkItems(maxResults: number = 200): Promise<WorkItemDetails[]> {
+    try {
+      const api = await AzureDevOpsClient.getWorkItemTrackingApi();
+      const config = AzureDevOpsClient.getConfig();
+
+      console.log(`[WorkItem] Fetching work items assigned to current user (max: ${maxResults})...`);
+
+      // Use WIQL to query work items assigned to the current user with specific states
+      const wiql = {
+        query: `SELECT [System.Id] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.State] IN ('New', 'In Progress') ORDER BY [System.ChangedDate] DESC`
+      };
+
+      console.log(`[WorkItem] Executing WIQL query (filtering for New and In Progress states)`);
+
+      const teamContext = { project: config.azureDevOpsProject };
+      const queryResult = await api.queryByWiql(wiql, teamContext);
+
+      if (!queryResult.workItems || queryResult.workItems.length === 0) {
+        console.log(`[WorkItem] No work items found assigned to current user`);
+        return [];
+      }
+
+      console.log(`[WorkItem] Found ${queryResult.workItems.length} work items assigned to current user`);
+
+      // Limit the number of results
+      const limitedWorkItems = queryResult.workItems.slice(0, maxResults);
+      const workItemIds = limitedWorkItems.map(wi => wi.id!);
+
+      console.log(`[WorkItem] Fetching details for ${workItemIds.length} work items (limited from ${queryResult.workItems.length})...`);
+
+      // Fetch work items in batches of 200 (Azure DevOps API limit)
+      const batchSize = 200;
+      const allWorkItems: WorkItem[] = [];
+
+      for (let i = 0; i < workItemIds.length; i += batchSize) {
+        const batchIds = workItemIds.slice(i, i + batchSize);
+        console.log(`[WorkItem] Fetching batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(workItemIds.length / batchSize)} (${batchIds.length} items)...`);
+
+        const batchWorkItems = await api.getWorkItems(
+          batchIds,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          config.azureDevOpsProject
+        );
+
+        if (batchWorkItems) {
+          allWorkItems.push(...batchWorkItems);
+        }
+      }
+
+      if (allWorkItems.length === 0) {
+        console.log(`[WorkItem] No work items returned from getWorkItems`);
+        return [];
+      }
+
+      console.log(`[WorkItem] Retrieved ${allWorkItems.length} work items`);
+
+      // Transform items, including GDPR-blocked ones with limited info
+      const transformedItems: WorkItemDetails[] = [];
+      let gdprBlockedCount = 0;
+
+      for (const workItem of allWorkItems) {
+        try {
+          GDPRValidator.validate(workItem);
+          transformedItems.push(this.transformWorkItem(workItem));
+        } catch (error) {
+          if (error instanceof GDPRComplianceError) {
+            gdprBlockedCount++;
+            // Include GDPR-blocked item with limited information
+            transformedItems.push(this.transformGDPRBlockedWorkItem(workItem, error.message));
+          } else {
+            console.warn(`[WorkItem] Failed to transform work item #${workItem.id}:`, error);
+          }
+        }
+      }
+
+      if (gdprBlockedCount > 0) {
+        console.log(`[WorkItem] Included ${gdprBlockedCount} GDPR-blocked work items with limited information`);
+      }
+
+      console.log(`[WorkItem] Returning ${transformedItems.length} work items (${gdprBlockedCount} GDPR-blocked)`);
+      return transformedItems;
+    } catch (error) {
+      console.error(`[WorkItem] Error fetching work items assigned to current user:`, error);
+      throw new Error(`Failed to fetch assigned work items: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   private static transformWorkItem(workItem: WorkItem): WorkItemDetails {
     const fields = workItem.fields || {};
 
@@ -333,6 +423,28 @@ export class WorkItemService {
       tags: fields['System.Tags'] ? fields['System.Tags'].split(';').map((t: string) => t.trim()) : [],
       relations: workItem.relations,
       fields,
+    };
+  }
+
+  private static transformGDPRBlockedWorkItem(workItem: WorkItem, gdprMessage: string): WorkItemDetails {
+    const fields = workItem.fields || {};
+    const workItemType = fields['System.WorkItemType'] || 'Unknown';
+
+    return {
+      id: workItem.id!,
+      title: '[GDPR BLOCKED]',
+      description: '',
+      workItemType: workItemType,
+      state: fields['System.State'] || '',
+      assignedTo: fields['System.AssignedTo']?.displayName || fields['System.AssignedTo'],
+      createdDate: new Date(fields['System.CreatedDate'] || Date.now()),
+      changedDate: new Date(fields['System.ChangedDate'] || Date.now()),
+      areaPath: '',
+      iterationPath: '',
+      tags: [],
+      fields: {},
+      gdprBlocked: true,
+      gdprMessage: gdprMessage,
     };
   }
 }

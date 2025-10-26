@@ -3,6 +3,21 @@ import { sanitizeError } from '../utils/errorHandler.js';
 
 export const workItemTools = [
   {
+    name: 'get_my_work_items',
+    description:
+      'Retrieves work items assigned to the current user with status "New" or "In Progress". Returns work items ordered by most recently changed. GDPR-blocked work item types (e.g., Bug) are automatically filtered out. Default limit is 200 items.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        maxResults: {
+          type: 'number',
+          description: 'Maximum number of work items to return (default: 200, max: 1000)',
+        },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'get_work_item',
     description:
       'Retrieves detailed information about an Azure DevOps work item by ID, including title, description, state, assignee, dates, and all custom fields. Note: Bug work items are blocked by GDPR policy.',
@@ -75,6 +90,21 @@ export const workItemTools = [
 export async function handleWorkItemToolCall(name: string, args: any): Promise<any> {
   try {
     switch (name) {
+      case 'get_my_work_items': {
+        const { maxResults } = args;
+        // Cap maxResults at 1000 to prevent overwhelming the system
+        const limitedMaxResults = maxResults ? Math.min(maxResults, 1000) : 200;
+        const workItems = await WorkItemService.getMyWorkItems(limitedMaxResults);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(workItems, null, 2),
+            },
+          ],
+        };
+      }
+
       case 'get_work_item': {
         const { workItemId } = args;
         const workItem = await WorkItemService.getWorkItem(workItemId);
