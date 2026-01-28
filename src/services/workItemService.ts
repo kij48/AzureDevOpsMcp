@@ -256,7 +256,10 @@ export class WorkItemService {
         if (!relation.url) continue;
 
         try {
-          const prUrlMatch = relation.url.match(/\/([^/]+)\/(\d+)/);
+          // Decode URL-encoded slashes before parsing
+          const decodedUrl = decodeURIComponent(relation.url);
+          // Extract repository ID (second-to-last segment) and PR ID (last segment)
+          const prUrlMatch = decodedUrl.match(/\/([a-f0-9-]+)\/(\d+)$/i);
           if (!prUrlMatch) continue;
 
           const repositoryId = prUrlMatch[1];
