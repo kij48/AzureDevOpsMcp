@@ -460,12 +460,12 @@ export class WorkItemService {
       dateThreshold.setDate(dateThreshold.getDate() - days);
       const dateString = dateThreshold.toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
-      // Use WIQL to query work items changed by the current user in the last N days
+      // Use WIQL to query work items assigned to the current user and changed in the last N days
       const wiql = {
-        query: `SELECT [System.Id] FROM WorkItems WHERE [System.ChangedBy] = @Me AND [System.ChangedDate] >= '${dateString}' ORDER BY [System.ChangedDate] DESC`
+        query: `SELECT [System.Id] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.ChangedDate] >= '${dateString}' ORDER BY [System.ChangedDate] DESC`
       };
 
-      console.log(`[WorkItem] Executing WIQL query for work items changed since ${dateString}`);
+      console.log(`[WorkItem] Executing WIQL query for work items assigned to current user and changed since ${dateString}`);
 
       const teamContext = { project: config.azureDevOpsProject };
       const queryResult = await api.queryByWiql(wiql, teamContext);
