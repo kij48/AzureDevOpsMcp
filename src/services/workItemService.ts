@@ -16,7 +16,7 @@ export class WorkItemService {
         workItemId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -54,7 +54,7 @@ export class WorkItemService {
         parentId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -126,7 +126,7 @@ export class WorkItemService {
         parentId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -179,7 +179,7 @@ export class WorkItemService {
         workItemId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -238,7 +238,7 @@ export class WorkItemService {
         workItemId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -358,7 +358,7 @@ export class WorkItemService {
           batchIds,
           undefined,
           undefined,
-          undefined,
+          1, // expand: Relations
           undefined,
           config.azureDevOpsProject
         );
@@ -500,7 +500,7 @@ export class WorkItemService {
           batchIds,
           undefined,
           undefined,
-          undefined,
+          1, // expand: Relations
           undefined,
           config.azureDevOpsProject
         );
@@ -510,7 +510,7 @@ export class WorkItemService {
         }
       }
 
-      console.log(`[WorkItem] Retrieved ${allWorkItems.length} work items, fetching commits for each...`);
+      console.log(`[WorkItem] Retrieved ${allWorkItems.length} work items, fetching commits and parents for each...`);
 
       // Build report for each work item
       const reportItems = [];
@@ -527,8 +527,8 @@ export class WorkItemService {
           const commits = await this.getAllCommits(workItemId);
           totalCommits += commits.length;
 
-          // Extract time registration field
-          let timeRegistration = fields['Schultz.TimeRegistration'] || null;
+          // Extract time registration field (check both possible field names)
+          let timeRegistration = fields['Schultz.TimeRegistration'] || fields['Schultz.TimelogID'] || null;
 
           // Check for parent work item (typically Feature)
           let parentInfo = null;
@@ -546,13 +546,13 @@ export class WorkItemService {
                     parentId,
                     undefined,
                     undefined,
-                    undefined,
+                    1, // expand: Relations
                     config.azureDevOpsProject
                   );
 
                   if (parent && parent.fields) {
                     const parentFields = parent.fields;
-                    const parentTimeRegistration = parentFields['Schultz.TimeRegistration'] || null;
+                    const parentTimeRegistration = parentFields['Schultz.TimeRegistration'] || parentFields['Schultz.TimelogID'] || null;
                     
                     parentInfo = {
                       id: parentId,
