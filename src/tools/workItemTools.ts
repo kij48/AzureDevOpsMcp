@@ -85,6 +85,21 @@ export const workItemTools = [
       required: ['workItemId'],
     },
   },
+  {
+    name: 'get_weekly_work_report',
+    description:
+      'Generates a weekly work report for the current user, showing all work items changed in the specified number of days (default: 7). For each work item, returns: ID, title, type, state, number of commits, and time registration value (Schultz.TimeRegistration field). Perfect for management reporting.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days: {
+          type: 'number',
+          description: 'Number of days to look back (default: 7)',
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 export async function handleWorkItemToolCall(name: string, args: any): Promise<any> {
@@ -152,6 +167,19 @@ export async function handleWorkItemToolCall(name: string, args: any): Promise<a
             {
               type: 'text',
               text: JSON.stringify(tree, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_weekly_work_report': {
+        const { days = 7 } = args;
+        const report = await WorkItemService.getWeeklyWorkReport(days);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(report, null, 2),
             },
           ],
         };
