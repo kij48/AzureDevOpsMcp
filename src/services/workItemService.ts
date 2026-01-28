@@ -528,7 +528,50 @@ export class WorkItemService {
           totalCommits += commits.length;
 
           // Extract time registration field
-          const timeRegistration = fields['Schultz.TimeRegistration'] || null;
+          let timeRegistration = fields['Schultz.TimeRegistration'] || null;
+
+          // Check for parent work item (typically Feature)
+          let parentInfo = null;
+          if (workItem.relations) {
+            const parentRelation = workItem.relations.find(
+              rel => rel.rel === 'System.LinkTypes.Hierarchy-Reverse'
+            );
+
+            if (parentRelation && parentRelation.url) {
+              const parentIdMatch = parentRelation.url.match(/(\d+)$/);
+              if (parentIdMatch) {
+                const parentId = parseInt(parentIdMatch[1], 10);
+                try {
+                  const parent = await api.getWorkItem(
+                    parentId,
+                    undefined,
+                    undefined,
+                    undefined,
+                    config.azureDevOpsProject
+                  );
+
+                  if (parent && parent.fields) {
+                    const parentFields = parent.fields;
+                    const parentTimeRegistration = parentFields['Schultz.TimeRegistration'] || null;
+                    
+                    parentInfo = {
+                      id: parentId,
+                      title: parentFields['System.Title'] || '',
+                      workItemType: parentFields['System.WorkItemType'] || '',
+                      timeRegistration: parentTimeRegistration,
+                    };
+
+                    // If this work item doesn't have time registration but parent does, use parent's
+                    if (!timeRegistration && parentTimeRegistration) {
+                      timeRegistration = parentTimeRegistration;
+                    }
+                  }
+                } catch (parentError) {
+                  console.warn(`[WorkItem] Failed to fetch parent work item #${parentId}:`, parentError);
+                }
+              }
+            }
+          }
 
           reportItems.push({
             id: workItemId,
@@ -538,6 +581,7 @@ export class WorkItemService {
             changedDate: fields['System.ChangedDate'] || null,
             commitCount: commits.length,
             timeRegistration: timeRegistration,
+            parent: parentInfo,
             commits: commits.map(c => ({
               commitId: c.commitId.substring(0, 8), // Short SHA
               author: c.author,
