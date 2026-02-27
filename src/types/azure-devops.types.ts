@@ -43,6 +43,15 @@ export interface CommitDetails {
   url?: string;
 }
 
+export interface ReviewerDetails {
+  displayName: string;
+  uniqueName: string;
+  id: string;
+  vote: number; // -10=Rejected, -5=WaitingForAuthor, 0=NoVote, 5=ApprovedWithSuggestions, 10=Approved
+  isRequired: boolean;
+  isFlagged?: boolean;
+}
+
 export interface PullRequestDetails {
   pullRequestId: number;
   title: string;
@@ -55,6 +64,7 @@ export interface PullRequestDetails {
   closedDate?: Date;
   repositoryId: string;
   url?: string;
+  reviewers?: ReviewerDetails[];
 }
 
 export interface FileChangeDetails {

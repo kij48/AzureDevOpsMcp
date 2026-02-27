@@ -16,7 +16,7 @@ export class WorkItemService {
         workItemId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -54,7 +54,7 @@ export class WorkItemService {
         parentId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -126,7 +126,7 @@ export class WorkItemService {
         parentId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -179,7 +179,7 @@ export class WorkItemService {
         workItemId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -238,7 +238,7 @@ export class WorkItemService {
         workItemId,
         undefined,
         undefined,
-        undefined,
+        1, // expand: Relations
         config.azureDevOpsProject
       );
 
@@ -256,7 +256,10 @@ export class WorkItemService {
         if (!relation.url) continue;
 
         try {
-          const prUrlMatch = relation.url.match(/\/([^/]+)\/(\d+)/);
+          // Decode URL-encoded slashes before parsing
+          const decodedUrl = decodeURIComponent(relation.url);
+          // Extract repository ID (second-to-last segment) and PR ID (last segment)
+          const prUrlMatch = decodedUrl.match(/\/([a-f0-9-]+)\/(\d+)$/i);
           if (!prUrlMatch) continue;
 
           const repositoryId = prUrlMatch[1];
@@ -358,7 +361,7 @@ export class WorkItemService {
           batchIds,
           undefined,
           undefined,
-          undefined,
+          1, // expand: Relations
           undefined,
           config.azureDevOpsProject
         );
@@ -446,5 +449,173 @@ export class WorkItemService {
       gdprBlocked: true,
       gdprMessage: gdprMessage,
     };
+  }
+
+  static async getWeeklyWorkReport(days: number = 7): Promise<any> {
+    try {
+      const api = await AzureDevOpsClient.getWorkItemTrackingApi();
+      const config = AzureDevOpsClient.getConfig();
+
+      console.log(`[WorkItem] Generating weekly work report for last ${days} days...`);
+
+      // Calculate the date threshold
+      const dateThreshold = new Date();
+      dateThreshold.setDate(dateThreshold.getDate() - days);
+      const dateString = dateThreshold.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+      // Use WIQL to query work items assigned to the current user and changed in the last N days
+      const wiql = {
+        query: `SELECT [System.Id] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.ChangedDate] >= '${dateString}' ORDER BY [System.ChangedDate] DESC`
+      };
+
+      console.log(`[WorkItem] Executing WIQL query for work items assigned to current user and changed since ${dateString}`);
+
+      const teamContext = { project: config.azureDevOpsProject };
+      const queryResult = await api.queryByWiql(wiql, teamContext);
+
+      if (!queryResult.workItems || queryResult.workItems.length === 0) {
+        console.log(`[WorkItem] No work items found changed by current user in the last ${days} days`);
+        return {
+          reportPeriod: {
+            days,
+            startDate: dateString,
+            endDate: new Date().toISOString().split('T')[0],
+          },
+          workItems: [],
+          totalWorkItems: 0,
+          totalCommits: 0,
+        };
+      }
+
+      console.log(`[WorkItem] Found ${queryResult.workItems.length} work items changed in the last ${days} days`);
+
+      const workItemIds = queryResult.workItems.map(wi => wi.id!);
+
+      // Fetch work items in batches of 200
+      const batchSize = 200;
+      const allWorkItems: WorkItem[] = [];
+
+      for (let i = 0; i < workItemIds.length; i += batchSize) {
+        const batchIds = workItemIds.slice(i, i + batchSize);
+        console.log(`[WorkItem] Fetching batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(workItemIds.length / batchSize)} (${batchIds.length} items)...`);
+
+        const batchWorkItems = await api.getWorkItems(
+          batchIds,
+          undefined,
+          undefined,
+          1, // expand: Relations
+          undefined,
+          config.azureDevOpsProject
+        );
+
+        if (batchWorkItems) {
+          allWorkItems.push(...batchWorkItems);
+        }
+      }
+
+      console.log(`[WorkItem] Retrieved ${allWorkItems.length} work items, fetching commits and parents for each...`);
+
+      // Build report for each work item
+      const reportItems = [];
+      let totalCommits = 0;
+
+      for (const workItem of allWorkItems) {
+        try {
+          GDPRValidator.validate(workItem);
+
+          const fields = workItem.fields || {};
+          const workItemId = workItem.id!;
+
+          // Get commits for this work item
+          const commits = await this.getAllCommits(workItemId);
+          totalCommits += commits.length;
+
+          // Extract time registration field (check both possible field names)
+          let timeRegistration = fields['Schultz.TimeRegistration'] || fields['Schultz.TimelogID'] || null;
+
+          // Check for parent work item (typically Feature)
+          let parentInfo = null;
+          if (workItem.relations) {
+            const parentRelation = workItem.relations.find(
+              rel => rel.rel === 'System.LinkTypes.Hierarchy-Reverse'
+            );
+
+            if (parentRelation && parentRelation.url) {
+              const parentIdMatch = parentRelation.url.match(/(\d+)$/);
+              if (parentIdMatch) {
+                const parentId = parseInt(parentIdMatch[1], 10);
+                try {
+                  const parent = await api.getWorkItem(
+                    parentId,
+                    undefined,
+                    undefined,
+                    1, // expand: Relations
+                    config.azureDevOpsProject
+                  );
+
+                  if (parent && parent.fields) {
+                    const parentFields = parent.fields;
+                    const parentTimeRegistration = parentFields['Schultz.TimeRegistration'] || parentFields['Schultz.TimelogID'] || null;
+                    
+                    parentInfo = {
+                      id: parentId,
+                      title: parentFields['System.Title'] || '',
+                      workItemType: parentFields['System.WorkItemType'] || '',
+                      timeRegistration: parentTimeRegistration,
+                    };
+
+                    // If this work item doesn't have time registration but parent does, use parent's
+                    if (!timeRegistration && parentTimeRegistration) {
+                      timeRegistration = parentTimeRegistration;
+                    }
+                  }
+                } catch (parentError) {
+                  console.warn(`[WorkItem] Failed to fetch parent work item #${parentId}:`, parentError);
+                }
+              }
+            }
+          }
+
+          reportItems.push({
+            id: workItemId,
+            title: fields['System.Title'] || '',
+            workItemType: fields['System.WorkItemType'] || '',
+            state: fields['System.State'] || '',
+            changedDate: fields['System.ChangedDate'] || null,
+            commitCount: commits.length,
+            timeRegistration: timeRegistration,
+            parent: parentInfo,
+            commits: commits.map(c => ({
+              commitId: c.commitId.substring(0, 8), // Short SHA
+              author: c.author,
+              date: c.date,
+              comment: c.comment.split('\n')[0], // First line only
+            })),
+          });
+        } catch (error) {
+          if (error instanceof GDPRComplianceError) {
+            console.log(`[WorkItem] Skipping GDPR-blocked work item #${workItem.id}`);
+          } else {
+            console.warn(`[WorkItem] Failed to process work item #${workItem.id}:`, error);
+          }
+        }
+      }
+
+      console.log(`[WorkItem] Report generated: ${reportItems.length} work items, ${totalCommits} total commits`);
+
+      return {
+        reportPeriod: {
+          days,
+          startDate: dateString,
+          endDate: new Date().toISOString().split('T')[0],
+        },
+        workItems: reportItems,
+        totalWorkItems: reportItems.length,
+        totalCommits,
+      };
+    } catch (error) {
+      console.error(`[WorkItem] Error generating weekly work report:`, error);
+      throw new Error(`Failed to generate weekly work report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }

@@ -75,6 +75,16 @@ export class PullRequestService {
 
       console.log(`[PullRequest] Successfully retrieved PR #${pullRequestId}: "${pr.title}"`);
 
+      // Extract reviewers information
+      const reviewers = pr.reviewers?.map(reviewer => ({
+        displayName: reviewer.displayName || 'Unknown',
+        uniqueName: reviewer.uniqueName || '',
+        id: reviewer.id || '',
+        vote: reviewer.vote || 0,
+        isRequired: reviewer.isRequired || false,
+        isFlagged: reviewer.isFlagged,
+      })) || [];
+
       return {
         pullRequestId: pr.pullRequestId!,
         title: pr.title || '',
@@ -87,6 +97,7 @@ export class PullRequestService {
         closedDate: pr.closedDate,
         repositoryId,
         url: pr.url,
+        reviewers,
       };
     } catch (error) {
       if (error instanceof NotFoundError) {
@@ -194,19 +205,31 @@ export class PullRequestService {
 
       console.log(`[PullRequest] Found ${prs.length} pull requests`);
 
-      return prs.map(pr => ({
-        pullRequestId: pr.pullRequestId!,
-        title: pr.title || '',
-        description: pr.description || '',
-        sourceRefName: pr.sourceRefName || '',
-        targetRefName: pr.targetRefName || '',
-        status: pr.status?.toString() || '',
-        createdBy: pr.createdBy?.displayName || 'Unknown',
-        creationDate: pr.creationDate || new Date(),
-        closedDate: pr.closedDate,
-        repositoryId: pr.repository?.name || repositoryId || '',
-        url: pr.url,
-      }));
+      return prs.map(pr => {
+        const reviewers = pr.reviewers?.map(reviewer => ({
+          displayName: reviewer.displayName || 'Unknown',
+          uniqueName: reviewer.uniqueName || '',
+          id: reviewer.id || '',
+          vote: reviewer.vote || 0,
+          isRequired: reviewer.isRequired || false,
+          isFlagged: reviewer.isFlagged,
+        })) || [];
+
+        return {
+          pullRequestId: pr.pullRequestId!,
+          title: pr.title || '',
+          description: pr.description || '',
+          sourceRefName: pr.sourceRefName || '',
+          targetRefName: pr.targetRefName || '',
+          status: pr.status?.toString() || '',
+          createdBy: pr.createdBy?.displayName || 'Unknown',
+          creationDate: pr.creationDate || new Date(),
+          closedDate: pr.closedDate,
+          repositoryId: pr.repository?.name || repositoryId || '',
+          url: pr.url,
+          reviewers,
+        };
+      });
     } catch (error) {
       console.error(`[PullRequest] Error listing pull requests:`, error);
       throw new Error(`Failed to list pull requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
