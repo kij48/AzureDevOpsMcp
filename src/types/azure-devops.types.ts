@@ -72,12 +72,24 @@ export interface FileContent {
   branch?: string;
 }
 
-export interface PullRequestComment {
+export interface PullRequestThreadComment {
   id: number;
   content: string;
   author: string;
   publishedDate: Date;
-  threadId?: number;
+  lastUpdatedDate?: Date;
+  parentCommentId?: number;
+  isDeleted?: boolean;
+}
+
+export interface PullRequestThread {
+  id: number;
+  status: string;
+  comments: PullRequestThreadComment[];
+  filePath?: string;
+  publishedDate?: Date;
+  lastUpdatedDate?: Date;
+  isDeleted?: boolean;
 }
 
 export { WorkItem, GitCommitRef, GitPullRequest, GitChange };

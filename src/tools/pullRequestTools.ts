@@ -127,6 +127,25 @@ export const pullRequestTools = [
       required: ['repositoryId', 'pullRequestId'],
     },
   },
+  {
+    name: 'get_pull_request_threads',
+    description:
+      'Retrieves all comment threads on a pull request, including thread status, comments with authors, and file context. Useful for reviewing PR discussions and feedback.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repositoryId: {
+          type: 'string',
+          description: 'The repository name (e.g., "MyRepo"), GUID, or full path (e.g., "ProjectName/MyRepo"). Simple names are automatically prefixed with the configured project.',
+        },
+        pullRequestId: {
+          type: 'number',
+          description: 'The ID of the pull request',
+        },
+      },
+      required: ['repositoryId', 'pullRequestId'],
+    },
+  },
 ];
 
 export async function handlePullRequestToolCall(name: string, args: any): Promise<any> {
@@ -205,6 +224,19 @@ export async function handlePullRequestToolCall(name: string, args: any): Promis
             {
               type: 'text',
               text: JSON.stringify(commits, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_pull_request_threads': {
+        const { repositoryId, pullRequestId } = args;
+        const threads = await PullRequestService.getPullRequestThreads(repositoryId, pullRequestId);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(threads, null, 2),
             },
           ],
         };

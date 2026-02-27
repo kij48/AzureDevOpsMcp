@@ -1,4 +1,4 @@
-import type { PullRequestDetails, CommitDetails, FileChangeDetails } from '../types/azure-devops.types.js';
+import type { PullRequestDetails, CommitDetails, FileChangeDetails, PullRequestThread } from '../types/azure-devops.types.js';
 import { AzureDevOpsClient } from './azureDevOpsClient.js';
 import { NotFoundError } from '../utils/errorHandler.js';
 
@@ -236,6 +236,53 @@ export class PullRequestService {
     } catch (error) {
       console.error(`[PullRequest] Error listing my pull requests:`, error);
       throw new Error(`Failed to list my pull requests: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  static async getPullRequestThreads(repositoryId: string, pullRequestId: number): Promise<PullRequestThread[]> {
+    try {
+      const api = await AzureDevOpsClient.getGitApi();
+      const config = AzureDevOpsClient.getConfig();
+      const repoNameOnly = repositoryId.includes('/') ? repositoryId.split('/')[1] : repositoryId;
+
+      console.log(`[PullRequest] Fetching comment threads for PR #${pullRequestId} from ${repoNameOnly} in project ${config.azureDevOpsProject}...`);
+
+      const threads = await api.getThreads(repoNameOnly, pullRequestId, config.azureDevOpsProject);
+
+      if (!threads) {
+        return [];
+      }
+
+      const statusMap: Record<number, string> = {
+        0: 'Unknown',
+        1: 'Active',
+        2: 'Fixed',
+        3: 'WontFix',
+        4: 'Closed',
+        5: 'ByDesign',
+        6: 'Pending',
+      };
+
+      return threads.map(thread => ({
+        id: thread.id ?? 0,
+        status: statusMap[thread.status ?? 0] ?? 'Unknown',
+        comments: (thread.comments ?? []).map(comment => ({
+          id: comment.id ?? 0,
+          content: comment.content ?? '',
+          author: comment.author?.displayName ?? 'Unknown',
+          publishedDate: comment.publishedDate ?? new Date(),
+          lastUpdatedDate: comment.lastUpdatedDate,
+          parentCommentId: comment.parentCommentId,
+          isDeleted: comment.isDeleted,
+        })),
+        filePath: thread.threadContext?.filePath,
+        publishedDate: thread.publishedDate,
+        lastUpdatedDate: thread.lastUpdatedDate,
+        isDeleted: thread.isDeleted,
+      }));
+    } catch (error) {
+      console.error(`[PullRequest] Error fetching comment threads for PR #${pullRequestId}:`, error);
+      throw new Error(`Failed to fetch pull request comment threads: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
