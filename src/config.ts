@@ -56,11 +56,11 @@ export function loadConfig(): Config {
       maxFileSizeBytes,
     };
 
-    console.log('[Config] Configuration loaded successfully');
-    console.log(`[Config] Azure DevOps URL: ${config.azureDevOpsUrl}`);
-    console.log(`[Config] Project: ${config.azureDevOpsProject}`);
-    console.log(`[Config] GDPR Blocked Types: ${config.gdprBlockedWorkItemTypes.join(', ')}`);
-    console.log(`[Config] Max File Size: ${(config.maxFileSizeBytes / 1024 / 1024).toFixed(2)} MB`);
+    console.error('[Config] Configuration loaded successfully');
+    console.error(`[Config] Azure DevOps URL: ${config.azureDevOpsUrl}`);
+    console.error(`[Config] Project: ${config.azureDevOpsProject}`);
+    console.error(`[Config] GDPR Blocked Types: ${config.gdprBlockedWorkItemTypes.join(', ')}`);
+    console.error(`[Config] Max File Size: ${(config.maxFileSizeBytes / 1024 / 1024).toFixed(2)} MB`);
 
     return config;
   } catch (error) {

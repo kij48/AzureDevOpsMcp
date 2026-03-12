@@ -27,7 +27,7 @@ export class RepositoryService {
       const config = AzureDevOpsClient.getConfig();
       const resolvedRepoId = this.resolveRepositoryId(repositoryId);
 
-      console.log(`[Repository] Fetching file ${filePath} from ${branch} branch in repository ${resolvedRepoId}...`);
+      console.error(`[Repository] Fetching file ${filePath} from ${branch} branch in repository ${resolvedRepoId}...`);
 
       const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
 
@@ -99,7 +99,7 @@ export class RepositoryService {
       const config = AzureDevOpsClient.getConfig();
       const resolvedRepoId = this.resolveRepositoryId(repositoryId);
 
-      console.log(`[Repository] Fetching file ${filePath} from PR #${pullRequestId} in ${resolvedRepoId}...`);
+      console.error(`[Repository] Fetching file ${filePath} from PR #${pullRequestId} in ${resolvedRepoId}...`);
 
       const pr = await api.getPullRequest(resolvedRepoId, pullRequestId, config.azureDevOpsProject);
 

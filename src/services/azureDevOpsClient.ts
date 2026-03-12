@@ -12,7 +12,7 @@ export class AzureDevOpsClient {
 
   static async initialize(config: Config): Promise<void> {
     try {
-      console.log('[AzureDevOps] Initializing connection...');
+      console.error('[AzureDevOps] Initializing connection...');
 
       const authHandler = azdev.getPersonalAccessTokenHandler(config.azureDevOpsPat);
       this.connection = new azdev.WebApi(config.azureDevOpsUrl, authHandler);
@@ -20,7 +20,7 @@ export class AzureDevOpsClient {
 
       await this.validateConnection();
 
-      console.log('[AzureDevOps] Connection initialized successfully');
+      console.error('[AzureDevOps] Connection initialized successfully');
     } catch (error) {
       console.error('[AzureDevOps] Failed to initialize connection:', error);
       throw new AuthenticationError(
@@ -37,7 +37,7 @@ export class AzureDevOpsClient {
     if (!this.workItemApi) {
       try {
         this.workItemApi = await this.connection.getWorkItemTrackingApi();
-        console.log('[AzureDevOps] Work Item Tracking API initialized');
+        console.error('[AzureDevOps] Work Item Tracking API initialized');
       } catch (error) {
         throw new AuthenticationError(
           `Failed to get Work Item Tracking API: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -56,7 +56,7 @@ export class AzureDevOpsClient {
     if (!this.gitApi) {
       try {
         this.gitApi = await this.connection.getGitApi();
-        console.log('[AzureDevOps] Git API initialized');
+        console.error('[AzureDevOps] Git API initialized');
       } catch (error) {
         throw new AuthenticationError(
           `Failed to get Git API: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -73,12 +73,12 @@ export class AzureDevOpsClient {
     }
 
     try {
-      console.log('[AzureDevOps] Validating connection...');
+      console.error('[AzureDevOps] Validating connection...');
       const witApi = await this.getWorkItemTrackingApi();
 
       await witApi.getWorkItemTypes(this.config!.azureDevOpsProject);
 
-      console.log('[AzureDevOps] Connection validation successful');
+      console.error('[AzureDevOps] Connection validation successful');
       return true;
     } catch (error) {
       console.error('[AzureDevOps] Connection validation failed:', error);

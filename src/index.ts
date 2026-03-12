@@ -43,7 +43,7 @@ class AzureDevOpsMCPServer {
 
   private setupHandlers(): void {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      console.log('[MCP] Listing available tools...');
+      console.error('[MCP] Listing available tools...');
       return {
         tools: this.allTools,
       };
@@ -52,8 +52,8 @@ class AzureDevOpsMCPServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
-      console.log(`[MCP] Tool called: ${name}`);
-      console.log(`[MCP] Arguments:`, JSON.stringify(args, null, 2));
+      console.error(`[MCP] Tool called: ${name}`);
+      console.error(`[MCP] Arguments:`, JSON.stringify(args, null, 2));
 
       if (workItemTools.some(tool => tool.name === name)) {
         return await handleWorkItemToolCall(name, args);
@@ -77,13 +77,13 @@ class AzureDevOpsMCPServer {
     };
 
     process.on('SIGINT', async () => {
-      console.log('[MCP] Shutting down server...');
+      console.error('[MCP] Shutting down server...');
       await this.server.close();
       process.exit(0);
     });
 
     process.on('SIGTERM', async () => {
-      console.log('[MCP] Shutting down server...');
+      console.error('[MCP] Shutting down server...');
       await this.server.close();
       process.exit(0);
     });
@@ -92,34 +92,34 @@ class AzureDevOpsMCPServer {
   async start(): Promise<void> {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.log(`[MCP] ${SERVER_NAME} v${SERVER_VERSION} started successfully`);
-    console.log(`[MCP] Available tools: ${this.allTools.length}`);
+    console.error(`[MCP] ${SERVER_NAME} v${SERVER_VERSION} started successfully`);
+    console.error(`[MCP] Available tools: ${this.allTools.length}`);
   }
 }
 
 async function main(): Promise<void> {
   try {
-    console.log('='.repeat(60));
-    console.log(`Azure DevOps MCP Server v${SERVER_VERSION}`);
-    console.log('='.repeat(60));
+    console.error('='.repeat(60));
+    console.error(`Azure DevOps MCP Server v${SERVER_VERSION}`);
+    console.error('='.repeat(60));
 
-    console.log('[Init] Loading configuration...');
+    console.error('[Init] Loading configuration...');
     const config = loadConfig();
 
-    console.log('[Init] Validating configuration...');
+    console.error('[Init] Validating configuration...');
     validateConfig(config);
 
-    console.log('[Init] Initializing GDPR validator...');
+    console.error('[Init] Initializing GDPR validator...');
     GDPRValidator.initialize(config.gdprBlockedWorkItemTypes);
 
-    console.log('[Init] Connecting to Azure DevOps...');
+    console.error('[Init] Connecting to Azure DevOps...');
     await AzureDevOpsClient.initialize(config);
 
-    console.log('[Init] Starting MCP server...');
+    console.error('[Init] Starting MCP server...');
     const server = new AzureDevOpsMCPServer();
     await server.start();
 
-    console.log('[Init] Server is ready to accept requests');
+    console.error('[Init] Server is ready to accept requests');
   } catch (error) {
     console.error('[Fatal] Failed to start server:', error);
     console.error('[Fatal] Error details:', error instanceof Error ? error.message : 'Unknown error');

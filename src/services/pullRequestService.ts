@@ -23,10 +23,10 @@ export class PullRequestService {
       const config = AzureDevOpsClient.getConfig();
       const resolvedRepoId = this.resolveRepositoryId(repositoryId);
 
-      console.log(`[PullRequest] Fetching PR #${pullRequestId} from repository ${resolvedRepoId} in project ${config.azureDevOpsProject}...`);
-      console.log(`[PullRequest] Original repository ID input: "${repositoryId}"`);
-      console.log(`[PullRequest] Resolved repository ID: "${resolvedRepoId}"`);
-      console.log(`[PullRequest] Project: "${config.azureDevOpsProject}"`);
+      console.error(`[PullRequest] Fetching PR #${pullRequestId} from repository ${resolvedRepoId} in project ${config.azureDevOpsProject}...`);
+      console.error(`[PullRequest] Original repository ID input: "${repositoryId}"`);
+      console.error(`[PullRequest] Resolved repository ID: "${resolvedRepoId}"`);
+      console.error(`[PullRequest] Project: "${config.azureDevOpsProject}"`);
 
       // Try different repository ID formats
       let pr = null;
@@ -34,36 +34,36 @@ export class PullRequestService {
 
       // Attempt 1: Just the repository name
       const repoNameOnly = repositoryId.includes('/') ? repositoryId.split('/')[1] : repositoryId;
-      console.log(`[PullRequest] Attempt 1: Using repository name: "${repoNameOnly}"`);
+      console.error(`[PullRequest] Attempt 1: Using repository name: "${repoNameOnly}"`);
       try {
         pr = await api.getPullRequest(repoNameOnly, pullRequestId, config.azureDevOpsProject);
-        if (pr) console.log(`[PullRequest] Success with repository name "${repoNameOnly}"`);
+        if (pr) console.error(`[PullRequest] Success with repository name "${repoNameOnly}"`);
       } catch (err) {
         lastError = err;
-        console.log(`[PullRequest] Attempt 1 failed:`, err instanceof Error ? err.message : err);
+        console.error(`[PullRequest] Attempt 1 failed:`, err instanceof Error ? err.message : err);
       }
 
       // Attempt 2: Full path if first attempt failed
       if (!pr && resolvedRepoId !== repoNameOnly) {
-        console.log(`[PullRequest] Attempt 2: Using full path: "${resolvedRepoId}"`);
+        console.error(`[PullRequest] Attempt 2: Using full path: "${resolvedRepoId}"`);
         try {
           pr = await api.getPullRequest(resolvedRepoId, pullRequestId, config.azureDevOpsProject);
-          if (pr) console.log(`[PullRequest] Success with full path "${resolvedRepoId}"`);
+          if (pr) console.error(`[PullRequest] Success with full path "${resolvedRepoId}"`);
         } catch (err) {
           lastError = err;
-          console.log(`[PullRequest] Attempt 2 failed:`, err instanceof Error ? err.message : err);
+          console.error(`[PullRequest] Attempt 2 failed:`, err instanceof Error ? err.message : err);
         }
       }
 
       // Attempt 3: Try without project parameter
       if (!pr) {
-        console.log(`[PullRequest] Attempt 3: Using repository name without project parameter`);
+        console.error(`[PullRequest] Attempt 3: Using repository name without project parameter`);
         try {
           pr = await api.getPullRequest(repoNameOnly, pullRequestId);
-          if (pr) console.log(`[PullRequest] Success without project parameter`);
+          if (pr) console.error(`[PullRequest] Success without project parameter`);
         } catch (err) {
           lastError = err;
-          console.log(`[PullRequest] Attempt 3 failed:`, err instanceof Error ? err.message : err);
+          console.error(`[PullRequest] Attempt 3 failed:`, err instanceof Error ? err.message : err);
         }
       }
 
@@ -73,7 +73,7 @@ export class PullRequestService {
         throw new NotFoundError('Pull request', pullRequestId);
       }
 
-      console.log(`[PullRequest] Successfully retrieved PR #${pullRequestId}: "${pr.title}"`);
+      console.error(`[PullRequest] Successfully retrieved PR #${pullRequestId}: "${pr.title}"`);
 
       // Extract reviewers information
       const reviewers = pr.reviewers?.map(reviewer => ({
@@ -114,7 +114,7 @@ export class PullRequestService {
       const config = AzureDevOpsClient.getConfig();
       const repoNameOnly = repositoryId.includes('/') ? repositoryId.split('/')[1] : repositoryId;
 
-      console.log(`[PullRequest] Fetching changes for PR #${pullRequestId} from ${repoNameOnly} in project ${config.azureDevOpsProject}...`);
+      console.error(`[PullRequest] Fetching changes for PR #${pullRequestId} from ${repoNameOnly} in project ${config.azureDevOpsProject}...`);
 
       const iteration = await api.getPullRequestIterationChanges(
         repoNameOnly,
@@ -145,7 +145,7 @@ export class PullRequestService {
       const config = AzureDevOpsClient.getConfig();
       const repoNameOnly = repositoryId.includes('/') ? repositoryId.split('/')[1] : repositoryId;
 
-      console.log(`[PullRequest] Fetching commits for PR #${pullRequestId} from ${repoNameOnly} in project ${config.azureDevOpsProject}...`);
+      console.error(`[PullRequest] Fetching commits for PR #${pullRequestId} from ${repoNameOnly} in project ${config.azureDevOpsProject}...`);
 
       const commits = await api.getPullRequestCommits(repoNameOnly, pullRequestId, config.azureDevOpsProject);
 
@@ -182,9 +182,9 @@ export class PullRequestService {
       let repoNameOnly: string | undefined;
       if (repositoryId) {
         repoNameOnly = repositoryId.includes('/') ? repositoryId.split('/')[1] : repositoryId;
-        console.log(`[PullRequest] Listing pull requests in repository ${repoNameOnly} with status: ${status}...`);
+        console.error(`[PullRequest] Listing pull requests in repository ${repoNameOnly} with status: ${status}...`);
       } else {
-        console.log(`[PullRequest] Listing pull requests across all repositories in project with status: ${status}...`);
+        console.error(`[PullRequest] Listing pull requests across all repositories in project with status: ${status}...`);
       }
 
       const searchCriteria: any = {
@@ -199,11 +199,11 @@ export class PullRequestService {
         : await api.getPullRequestsByProject(config.azureDevOpsProject, searchCriteria);
 
       if (!prs || prs.length === 0) {
-        console.log(`[PullRequest] No pull requests found`);
+        console.error(`[PullRequest] No pull requests found`);
         return [];
       }
 
-      console.log(`[PullRequest] Found ${prs.length} pull requests`);
+      console.error(`[PullRequest] Found ${prs.length} pull requests`);
 
       return prs.map(pr => {
         const reviewers = pr.reviewers?.map(reviewer => ({
@@ -241,7 +241,7 @@ export class PullRequestService {
     top: number = 100
   ): Promise<PullRequestDetails[]> {
     try {
-      console.log(`[PullRequest] Listing my pull requests with status: ${status}...`);
+      console.error(`[PullRequest] Listing my pull requests with status: ${status}...`);
 
       // Get current user identity using the connection's authorized resource
       const connection = AzureDevOpsClient.getConnection();
@@ -253,7 +253,7 @@ export class PullRequestService {
         throw new Error('Unable to determine current user ID');
       }
 
-      console.log(`[PullRequest] Current user ID: ${myId}`);
+      console.error(`[PullRequest] Current user ID: ${myId}`);
 
       return await this.listPullRequests(undefined, status, myId, undefined, top);
     } catch (error) {
@@ -268,7 +268,7 @@ export class PullRequestService {
       const config = AzureDevOpsClient.getConfig();
       const repoNameOnly = repositoryId.includes('/') ? repositoryId.split('/')[1] : repositoryId;
 
-      console.log(`[PullRequest] Fetching comment threads for PR #${pullRequestId} from ${repoNameOnly} in project ${config.azureDevOpsProject}...`);
+      console.error(`[PullRequest] Fetching comment threads for PR #${pullRequestId} from ${repoNameOnly} in project ${config.azureDevOpsProject}...`);
 
       const threads = await api.getThreads(repoNameOnly, pullRequestId, config.azureDevOpsProject);
 
@@ -314,7 +314,7 @@ export class PullRequestService {
     top: number = 100
   ): Promise<PullRequestDetails[]> {
     try {
-      console.log(`[PullRequest] Listing pull requests assigned to me with status: ${status}...`);
+      console.error(`[PullRequest] Listing pull requests assigned to me with status: ${status}...`);
 
       // Get current user identity using the connection's authorized resource
       const connection = AzureDevOpsClient.getConnection();
@@ -326,7 +326,7 @@ export class PullRequestService {
         throw new Error('Unable to determine current user ID');
       }
 
-      console.log(`[PullRequest] Current user ID: ${myId}`);
+      console.error(`[PullRequest] Current user ID: ${myId}`);
 
       return await this.listPullRequests(undefined, status, undefined, myId, top);
     } catch (error) {

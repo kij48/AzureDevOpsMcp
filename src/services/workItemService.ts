@@ -10,7 +10,7 @@ export class WorkItemService {
       const api = await AzureDevOpsClient.getWorkItemTrackingApi();
       const config = AzureDevOpsClient.getConfig();
 
-      console.log(`[WorkItem] Fetching work item #${workItemId}...`);
+      console.error(`[WorkItem] Fetching work item #${workItemId}...`);
 
       const workItem = await api.getWorkItem(
         workItemId,
@@ -42,7 +42,7 @@ export class WorkItemService {
     currentDepth: number = 0
   ): Promise<WorkItemDetails[]> {
     if (currentDepth >= maxDepth) {
-      console.log(`[WorkItem] Max depth ${maxDepth} reached for work item #${parentId}`);
+      console.error(`[WorkItem] Max depth ${maxDepth} reached for work item #${parentId}`);
       return [];
     }
 
@@ -324,30 +324,30 @@ export class WorkItemService {
       const api = await AzureDevOpsClient.getWorkItemTrackingApi();
       const config = AzureDevOpsClient.getConfig();
 
-      console.log(`[WorkItem] Fetching work items assigned to current user (max: ${maxResults})...`);
+      console.error(`[WorkItem] Fetching work items assigned to current user (max: ${maxResults})...`);
 
       // Use WIQL to query work items assigned to the current user with specific states
       const wiql = {
         query: `SELECT [System.Id] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.State] IN ('New', 'In Progress') ORDER BY [System.ChangedDate] DESC`
       };
 
-      console.log(`[WorkItem] Executing WIQL query (filtering for New and In Progress states)`);
+      console.error(`[WorkItem] Executing WIQL query (filtering for New and In Progress states)`);
 
       const teamContext = { project: config.azureDevOpsProject };
       const queryResult = await api.queryByWiql(wiql, teamContext);
 
       if (!queryResult.workItems || queryResult.workItems.length === 0) {
-        console.log(`[WorkItem] No work items found assigned to current user`);
+        console.error(`[WorkItem] No work items found assigned to current user`);
         return [];
       }
 
-      console.log(`[WorkItem] Found ${queryResult.workItems.length} work items assigned to current user`);
+      console.error(`[WorkItem] Found ${queryResult.workItems.length} work items assigned to current user`);
 
       // Limit the number of results
       const limitedWorkItems = queryResult.workItems.slice(0, maxResults);
       const workItemIds = limitedWorkItems.map(wi => wi.id!);
 
-      console.log(`[WorkItem] Fetching details for ${workItemIds.length} work items (limited from ${queryResult.workItems.length})...`);
+      console.error(`[WorkItem] Fetching details for ${workItemIds.length} work items (limited from ${queryResult.workItems.length})...`);
 
       // Fetch work items in batches of 200 (Azure DevOps API limit)
       const batchSize = 200;
@@ -355,7 +355,7 @@ export class WorkItemService {
 
       for (let i = 0; i < workItemIds.length; i += batchSize) {
         const batchIds = workItemIds.slice(i, i + batchSize);
-        console.log(`[WorkItem] Fetching batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(workItemIds.length / batchSize)} (${batchIds.length} items)...`);
+        console.error(`[WorkItem] Fetching batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(workItemIds.length / batchSize)} (${batchIds.length} items)...`);
 
         const batchWorkItems = await api.getWorkItems(
           batchIds,
@@ -372,11 +372,11 @@ export class WorkItemService {
       }
 
       if (allWorkItems.length === 0) {
-        console.log(`[WorkItem] No work items returned from getWorkItems`);
+        console.error(`[WorkItem] No work items returned from getWorkItems`);
         return [];
       }
 
-      console.log(`[WorkItem] Retrieved ${allWorkItems.length} work items`);
+      console.error(`[WorkItem] Retrieved ${allWorkItems.length} work items`);
 
       // Transform items, including GDPR-blocked ones with limited info
       const transformedItems: WorkItemDetails[] = [];
@@ -398,10 +398,10 @@ export class WorkItemService {
       }
 
       if (gdprBlockedCount > 0) {
-        console.log(`[WorkItem] Included ${gdprBlockedCount} GDPR-blocked work items with limited information`);
+        console.error(`[WorkItem] Included ${gdprBlockedCount} GDPR-blocked work items with limited information`);
       }
 
-      console.log(`[WorkItem] Returning ${transformedItems.length} work items (${gdprBlockedCount} GDPR-blocked)`);
+      console.error(`[WorkItem] Returning ${transformedItems.length} work items (${gdprBlockedCount} GDPR-blocked)`);
       return transformedItems;
     } catch (error) {
       console.error(`[WorkItem] Error fetching work items assigned to current user:`, error);
@@ -456,7 +456,7 @@ export class WorkItemService {
       const api = await AzureDevOpsClient.getWorkItemTrackingApi();
       const config = AzureDevOpsClient.getConfig();
 
-      console.log(`[WorkItem] Generating weekly work report for last ${days} days...`);
+      console.error(`[WorkItem] Generating weekly work report for last ${days} days...`);
 
       // Calculate the date threshold
       const dateThreshold = new Date();
@@ -468,13 +468,13 @@ export class WorkItemService {
         query: `SELECT [System.Id] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.ChangedDate] >= '${dateString}' ORDER BY [System.ChangedDate] DESC`
       };
 
-      console.log(`[WorkItem] Executing WIQL query for work items assigned to current user and changed since ${dateString}`);
+      console.error(`[WorkItem] Executing WIQL query for work items assigned to current user and changed since ${dateString}`);
 
       const teamContext = { project: config.azureDevOpsProject };
       const queryResult = await api.queryByWiql(wiql, teamContext);
 
       if (!queryResult.workItems || queryResult.workItems.length === 0) {
-        console.log(`[WorkItem] No work items found changed by current user in the last ${days} days`);
+        console.error(`[WorkItem] No work items found changed by current user in the last ${days} days`);
         return {
           reportPeriod: {
             days,
@@ -487,7 +487,7 @@ export class WorkItemService {
         };
       }
 
-      console.log(`[WorkItem] Found ${queryResult.workItems.length} work items changed in the last ${days} days`);
+      console.error(`[WorkItem] Found ${queryResult.workItems.length} work items changed in the last ${days} days`);
 
       const workItemIds = queryResult.workItems.map(wi => wi.id!);
 
@@ -497,7 +497,7 @@ export class WorkItemService {
 
       for (let i = 0; i < workItemIds.length; i += batchSize) {
         const batchIds = workItemIds.slice(i, i + batchSize);
-        console.log(`[WorkItem] Fetching batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(workItemIds.length / batchSize)} (${batchIds.length} items)...`);
+        console.error(`[WorkItem] Fetching batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(workItemIds.length / batchSize)} (${batchIds.length} items)...`);
 
         const batchWorkItems = await api.getWorkItems(
           batchIds,
@@ -513,7 +513,7 @@ export class WorkItemService {
         }
       }
 
-      console.log(`[WorkItem] Retrieved ${allWorkItems.length} work items, fetching commits and parents for each...`);
+      console.error(`[WorkItem] Retrieved ${allWorkItems.length} work items, fetching commits and parents for each...`);
 
       // Build report for each work item
       const reportItems = [];
@@ -594,14 +594,14 @@ export class WorkItemService {
           });
         } catch (error) {
           if (error instanceof GDPRComplianceError) {
-            console.log(`[WorkItem] Skipping GDPR-blocked work item #${workItem.id}`);
+            console.error(`[WorkItem] Skipping GDPR-blocked work item #${workItem.id}`);
           } else {
             console.warn(`[WorkItem] Failed to process work item #${workItem.id}:`, error);
           }
         }
       }
 
-      console.log(`[WorkItem] Report generated: ${reportItems.length} work items, ${totalCommits} total commits`);
+      console.error(`[WorkItem] Report generated: ${reportItems.length} work items, ${totalCommits} total commits`);
 
       return {
         reportPeriod: {

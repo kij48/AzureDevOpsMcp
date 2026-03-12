@@ -8,7 +8,7 @@ export class GDPRValidator {
   static initialize(blockedTypes: string[]): void {
     this.blockedWorkItemTypes = new Set(blockedTypes.map(type => type.toLowerCase()));
     this.initialized = true;
-    console.log(`[GDPR] Initialized with blocked work item types: ${Array.from(this.blockedWorkItemTypes).join(', ')}`);
+    console.error(`[GDPR] Initialized with blocked work item types: ${Array.from(this.blockedWorkItemTypes).join(', ')}`);
   }
 
   static validate(workItem: WorkItem): void {
@@ -33,11 +33,11 @@ export class GDPRValidator {
     const normalizedType = String(workItemType).toLowerCase();
 
     if (this.blockedWorkItemTypes.has(normalizedType)) {
-      console.log(`[GDPR] Blocked access to work item #${workItem.id} of type "${workItemType}"`);
+      console.error(`[GDPR] Blocked access to work item #${workItem.id} of type "${workItemType}"`);
       throw new GDPRComplianceError(workItem.id, workItemType);
     }
 
-    console.log(`[GDPR] Allowed access to work item #${workItem.id} of type "${workItemType}"`);
+    console.error(`[GDPR] Allowed access to work item #${workItem.id} of type "${workItemType}"`);
   }
 
   static isBlocked(workItemType: string): boolean {
