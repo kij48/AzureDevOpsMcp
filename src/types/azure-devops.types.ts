@@ -1,6 +1,33 @@
 import type { GitCommitRef, GitPullRequest, GitChange } from 'azure-devops-node-api/interfaces/GitInterfaces.js';
 import type { WorkItem, WorkItemRelation } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
 
+export interface WorkItemComment {
+  id: number;
+  author: string;
+  createdDate: Date;
+  text: string;
+}
+
+export interface ChildItemSummary {
+  count: number;
+  childIds: number[];
+}
+
+export interface AttachmentInfo {
+  name: string;
+  url: string;
+  resourceSize: number;
+  createdDate: Date;
+}
+
+export interface AttachmentContent {
+  name: string;
+  url: string;
+  mimeType: string;
+  size: number;
+  data: string; // base64-encoded
+}
+
 export interface Config {
   azureDevOpsUrl: string;
   azureDevOpsPat: string;
@@ -25,6 +52,9 @@ export interface WorkItemDetails {
   fields: Record<string, any>;
   gdprBlocked?: boolean;
   gdprMessage?: string;
+  comments?: WorkItemComment[];
+  childItems?: ChildItemSummary;
+  attachments?: AttachmentInfo[];
 }
 
 export interface WorkItemTree {

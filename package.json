@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "watch": "tsx watch src/index.ts",
-    "test": "echo \"Error: no test command specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [
     "mcp",
@@ -29,8 +29,9 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.19",
+    "tsx": "^4.7.1",
     "typescript": "^5.3.3",
-    "tsx": "^4.7.1"
+    "vitest": "^4.1.0"
   },
   "engines": {
     "node": ">=18.0.0"

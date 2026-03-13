@@ -1,8 +1,15 @@
 import * as dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import type { Config } from './types/azure-devops.types.js';
 import { ConfigurationError } from './utils/errorHandler.js';
 
-dotenv.config();
+// Get the directory of this module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load .env from the same directory as this config file
+dotenv.config({ path: join(__dirname, '.env') });
 
 function getRequiredEnvVar(name: string): string {
   const value = process.env[name];

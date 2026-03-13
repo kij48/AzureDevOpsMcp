@@ -20,7 +20,7 @@ export const workItemTools = [
   {
     name: 'get_work_item',
     description:
-      'Retrieves detailed information about an Azure DevOps work item by ID, including title, description, state, assignee, dates, and all custom fields. Note: Bug work items are blocked by GDPR policy.',
+      'Retrieves detailed information about an Azure DevOps work item by ID, including title, description, state, assignee, dates, all custom fields, discussion comments, child item summary, and attachment metadata. Note: Bug work items are blocked by GDPR policy.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -98,6 +98,21 @@ export const workItemTools = [
         },
       },
       required: [],
+    },
+  },
+  {
+    name: 'get_work_item_attachment',
+    description:
+      'Downloads an attachment from an Azure DevOps work item by URL and returns its content. For images, returns an MCP image content block so Claude can view it. Attachment URLs can be found in work item attachment metadata or extracted from inline images in comments/descriptions (e.g. _apis/wit/attachments/{guid} URLs).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        attachmentUrl: {
+          type: 'string',
+          description: 'The full URL of the attachment to download (must be on the configured Azure DevOps host)',
+        },
+      },
+      required: ['attachmentUrl'],
     },
   },
 ];
@@ -180,6 +195,36 @@ export async function handleWorkItemToolCall(name: string, args: any): Promise<a
             {
               type: 'text',
               text: JSON.stringify(report, null, 2),
+            },
+          ],
+        };
+      }
+
+      case 'get_work_item_attachment': {
+        const { attachmentUrl } = args;
+        const attachment = await WorkItemService.downloadAttachment(attachmentUrl);
+
+        if (attachment.mimeType.startsWith('image/')) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Attachment: ${attachment.name} (${attachment.size} bytes, ${attachment.mimeType})`,
+              },
+              {
+                type: 'image',
+                data: attachment.data,
+                mimeType: attachment.mimeType,
+              },
+            ],
+          };
+        }
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Attachment: ${attachment.name} (${attachment.size} bytes, ${attachment.mimeType})\n\nBase64 content:\n${attachment.data}`,
             },
           ],
         };

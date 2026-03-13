@@ -1,5 +1,6 @@
 import type { WorkItem } from 'azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js';
-import type { WorkItemDetails, WorkItemTree, CommitDetails } from '../types/azure-devops.types.js';
+import type { WorkItemDetails, WorkItemTree, CommitDetails, WorkItemComment, ChildItemSummary, AttachmentInfo, AttachmentContent } from '../types/azure-devops.types.js';
+import { FileSizeLimitError } from '../utils/errorHandler.js';
 import { AzureDevOpsClient } from './azureDevOpsClient.js';
 import { GDPRValidator } from '../utils/gdprValidator.js';
 import { NotFoundError, GDPRComplianceError } from '../utils/errorHandler.js';
@@ -12,13 +13,16 @@ export class WorkItemService {
 
       console.error(`[WorkItem] Fetching work item #${workItemId}...`);
 
-      const workItem = await api.getWorkItem(
-        workItemId,
-        undefined,
-        undefined,
-        1, // expand: Relations
-        config.azureDevOpsProject
-      );
+      const [workItem, comments] = await Promise.all([
+        api.getWorkItem(
+          workItemId,
+          undefined,
+          undefined,
+          1, // expand: Relations
+          config.azureDevOpsProject
+        ),
+        this.fetchComments(workItemId),
+      ]);
 
       if (!workItem) {
         throw new NotFoundError('Work item', workItemId);
@@ -26,7 +30,12 @@ export class WorkItemService {
 
       GDPRValidator.validate(workItem);
 
-      return this.transformWorkItem(workItem);
+      const result = this.transformWorkItem(workItem);
+      result.comments = comments;
+      result.childItems = this.extractChildSummary(workItem.relations);
+      result.attachments = this.extractAttachments(workItem.relations);
+
+      return result;
     } catch (error) {
       if (error instanceof NotFoundError || error instanceof GDPRComplianceError) {
         throw error;
@@ -407,6 +416,160 @@ export class WorkItemService {
       console.error(`[WorkItem] Error fetching work items assigned to current user:`, error);
       throw new Error(`Failed to fetch assigned work items: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  static async downloadAttachment(attachmentUrl: string): Promise<AttachmentContent> {
+    const config = AzureDevOpsClient.getConfig();
+
+    // SSRF protection: validate URL origin matches configured Azure DevOps host
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(attachmentUrl);
+    } catch {
+      throw new Error('Invalid attachment URL');
+    }
+
+    const configOrigin = new URL(config.azureDevOpsUrl).origin;
+    if (parsedUrl.origin !== configOrigin) {
+      throw new Error(`Attachment URL origin does not match configured Azure DevOps host. Expected origin: ${configOrigin}`);
+    }
+
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      throw new Error('Attachment URL must use HTTP or HTTPS protocol');
+    }
+
+    console.log(`[WorkItem] Downloading attachment from: ${attachmentUrl}`);
+
+    const authToken = Buffer.from(`:${config.azureDevOpsPat}`).toString('base64');
+    const response = await fetch(attachmentUrl, {
+      headers: {
+        'Authorization': `Basic ${authToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new NotFoundError('Attachment', attachmentUrl);
+      }
+      throw new Error(`Failed to download attachment: HTTP ${response.status} ${response.statusText}`);
+    }
+
+    // Check Content-Length header before downloading body
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > config.maxFileSizeBytes) {
+      const fileName = this.extractFileName(attachmentUrl);
+      throw new FileSizeLimitError(fileName, parseInt(contentLength, 10), config.maxFileSizeBytes);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Check actual size
+    if (buffer.length > config.maxFileSizeBytes) {
+      const fileName = this.extractFileName(attachmentUrl);
+      throw new FileSizeLimitError(fileName, buffer.length, config.maxFileSizeBytes);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    const mimeType = contentType.split(';')[0].trim() || this.inferMimeType(attachmentUrl);
+    const name = this.extractFileName(attachmentUrl);
+
+    console.log(`[WorkItem] Downloaded attachment: ${name} (${buffer.length} bytes, ${mimeType})`);
+
+    return {
+      name,
+      url: attachmentUrl,
+      mimeType,
+      size: buffer.length,
+      data: buffer.toString('base64'),
+    };
+  }
+
+  private static extractFileName(url: string): string {
+    const parsedUrl = new URL(url);
+    const fileNameParam = parsedUrl.searchParams.get('fileName');
+    if (fileNameParam) {
+      return fileNameParam;
+    }
+    const pathParts = parsedUrl.pathname.split('/');
+    return pathParts[pathParts.length - 1] || 'attachment';
+  }
+
+  private static inferMimeType(url: string): string {
+    const name = this.extractFileName(url).toLowerCase();
+    const ext = name.split('.').pop() || '';
+    const mimeMap: Record<string, string> = {
+      'png': 'image/png',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'gif': 'image/gif',
+      'bmp': 'image/bmp',
+      'webp': 'image/webp',
+      'svg': 'image/svg+xml',
+      'pdf': 'application/pdf',
+      'txt': 'text/plain',
+      'json': 'application/json',
+      'xml': 'application/xml',
+    };
+    return mimeMap[ext] || 'application/octet-stream';
+  }
+
+  private static async fetchComments(workItemId: number): Promise<WorkItemComment[]> {
+    try {
+      const api = await AzureDevOpsClient.getWorkItemTrackingApi();
+      const config = AzureDevOpsClient.getConfig();
+
+      const commentList = await api.getComments(config.azureDevOpsProject, workItemId);
+
+      if (!commentList?.comments) {
+        return [];
+      }
+
+      return commentList.comments
+        .filter(c => !c.isDeleted)
+        .map(c => ({
+          id: c.id!,
+          author: c.createdBy?.displayName || 'Unknown',
+          createdDate: c.createdDate || new Date(),
+          text: c.text || '',
+        }));
+    } catch (error) {
+      console.warn(`[WorkItem] Failed to fetch comments for #${workItemId}:`, error);
+      return [];
+    }
+  }
+
+  private static extractChildSummary(relations: WorkItem['relations']): ChildItemSummary {
+    if (!relations) {
+      return { count: 0, childIds: [] };
+    }
+
+    const childIds: number[] = [];
+    for (const rel of relations) {
+      if (rel.rel === 'System.LinkTypes.Hierarchy-Forward' && rel.url) {
+        const match = rel.url.match(/(\d+)$/);
+        if (match) {
+          childIds.push(parseInt(match[1], 10));
+        }
+      }
+    }
+
+    return { count: childIds.length, childIds };
+  }
+
+  private static extractAttachments(relations: WorkItem['relations']): AttachmentInfo[] {
+    if (!relations) {
+      return [];
+    }
+
+    return relations
+      .filter(rel => rel.rel === 'AttachedFile')
+      .map(rel => ({
+        name: rel.attributes?.['name'] || 'Unknown',
+        url: rel.url || '',
+        resourceSize: rel.attributes?.['resourceSize'] || 0,
+        createdDate: rel.attributes?.['resourceCreatedDate'] ? new Date(rel.attributes['resourceCreatedDate']) : new Date(),
+      }));
   }
 
   private static transformWorkItem(workItem: WorkItem): WorkItemDetails {
