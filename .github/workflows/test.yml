@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -26,3 +33,15 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+
+  all-checks-passed:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: All matrix jobs passed
+        run: |
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "Test jobs failed or were cancelled (result: ${{ needs.test.result }})"
+            exit 1
+          fi
