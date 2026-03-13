@@ -64,7 +64,6 @@ src/
 ```
 AZURE_DEVOPS_URL=https://your-server.com
 AZURE_DEVOPS_PAT=your_personal_access_token
-AZURE_DEVOPS_ORGANIZATION=YourOrg
 AZURE_DEVOPS_PROJECT=YourProject
 GDPR_BLOCKED_WORK_ITEM_TYPES=Bug
 MAX_FILE_SIZE_MB=1
@@ -277,7 +276,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 ```
 
 **Reference Implementation:**
-Study the API patterns from: `https://github.com/Tiberriver256/mcp-server-azure-devops`
+See the AzureDevOpsMcp project at `C:\repos\mcp\AzureDevOpsMcp`
 
 ---
 
@@ -413,7 +412,7 @@ tests/
 
 ### Risk 6: MCP SDK Learning Curve
 **Mitigation:**
-- Study reference implementation (Tiberriver256)
+- Study MCP SDK documentation and AzureDevOpsMcp implementation at `C:\repos\mcp\AzureDevOpsMcp`
 - Start with simple tools, add complexity incrementally
 - Test each tool independently before integration
 - Use TypeScript for better IDE support

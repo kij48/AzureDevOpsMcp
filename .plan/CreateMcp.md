@@ -235,8 +235,8 @@ export class GDPRValidator {
 ```
 AZURE_DEVOPS_URL=https://your-devops-server.com
 AZURE_DEVOPS_PAT=your_personal_access_token
-AZURE_DEVOPS_ORGANIZATION=your_org
 AZURE_DEVOPS_PROJECT=your_project
+GDPR_BLOCKED_WORK_ITEM_TYPES=Bug
 MAX_FILE_SIZE_MB=1
 ```
 
@@ -260,8 +260,8 @@ MAX_FILE_SIZE_MB=1
 - Implement health check
 - Add logging
 
-**Reference API from:** 
-`https://github.com/Tiberriver256/mcp-server-azure-devops`
+**Reference Implementation:**
+See the AzureDevOpsMcp project at `C:\repos\mcp\AzureDevOpsMcp`
 
 ---
 
