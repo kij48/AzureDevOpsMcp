@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WorkItemService } from '../src/services/workItemService.js';
 import { AzureDevOpsClient } from '../src/services/azureDevOpsClient.js';
-import { NotFoundError, FileSizeLimitError } from '../src/utils/errorHandler.js';
+import { NotFoundError, FileSizeLimitError, GDPRComplianceError } from '../src/utils/errorHandler.js';
+import { GDPRValidator } from '../src/utils/gdprValidator.js';
 import type { Config } from '../src/types/azure-devops.types.js';
 
 const mockConfig: Config = {
@@ -22,7 +23,8 @@ vi.mock('../src/services/azureDevOpsClient.js', () => ({
 
 vi.mock('../src/utils/gdprValidator.js', () => ({
   GDPRValidator: {
-    validate: vi.fn(), // no-op: allow all work items in tests
+    validate: vi.fn(), // no-op by default: allow all work items in tests
+    isBlocked: vi.fn().mockReturnValue(false),
   },
 }));
 
@@ -317,5 +319,134 @@ describe('downloadAttachment', () => {
       'https://tfs.example.com/tfs/Collection/_apis/wit/attachments/abc-def-123'
     );
     expect(result.name).toBe('abc-def-123');
+  });
+});
+
+describe('GDPR blocked work items', () => {
+  const bugWorkItem = {
+    id: 42,
+    fields: {
+      'System.Title': 'Login button broken',
+      'System.Description': '<p>Sensitive description with PII</p>',
+      'System.WorkItemType': 'Bug',
+      'System.State': 'Active',
+      'System.AssignedTo': { displayName: 'Jane Doe' },
+      'System.CreatedDate': '2026-01-15',
+      'System.ChangedDate': '2026-03-10',
+      'System.AreaPath': 'MyProject\\Team Alpha',
+      'System.IterationPath': 'MyProject\\Sprint 5',
+      'System.Tags': 'urgent; frontend; regression',
+    },
+    relations: [
+      { rel: 'AttachedFile', url: 'https://tfs.example.com/_apis/wit/attachments/secret', attributes: { name: 'screenshot.png', resourceSize: 1000 } },
+    ],
+  };
+
+  it('getWorkItem should return redacted WorkItemDetails for GDPR-blocked type', async () => {
+    vi.mocked(GDPRValidator.validate).mockImplementation((workItem: any) => {
+      throw new GDPRComplianceError(workItem.id, workItem.fields['System.WorkItemType']);
+    });
+
+    const mockApi = {
+      getWorkItem: vi.fn().mockResolvedValue(bugWorkItem),
+      getComments: vi.fn().mockResolvedValue({ comments: [{ id: 1, text: 'secret comment', isDeleted: false, createdBy: { displayName: 'X' }, createdDate: new Date() }] }),
+    };
+    vi.mocked(AzureDevOpsClient.getWorkItemTrackingApi).mockResolvedValue(mockApi as any);
+
+    const result = await WorkItemService.getWorkItem(42);
+
+    // Safe metadata exposed
+    expect(result.id).toBe(42);
+    expect(result.title).toBe('Login button broken');
+    expect(result.areaPath).toBe('MyProject\\Team Alpha');
+    expect(result.iterationPath).toBe('MyProject\\Sprint 5');
+    expect(result.tags).toEqual(['urgent', 'frontend', 'regression']);
+    expect(result.state).toBe('Active');
+    expect(result.workItemType).toBe('Bug');
+
+    // Sensitive content redacted
+    expect(result.description).toBe('[GDPR REDACTED]');
+    expect(result.comments).toEqual([]);
+    expect(result.attachments).toEqual([]);
+    expect(result.fields).toEqual({});
+    expect(result.relations).toBeUndefined();
+
+    // GDPR flags set
+    expect(result.gdprBlocked).toBe(true);
+    expect(result.gdprMessage).toContain('GDPR');
+  });
+
+  it('getWorkItem should not throw for GDPR-blocked types', async () => {
+    vi.mocked(GDPRValidator.validate).mockImplementation((workItem: any) => {
+      throw new GDPRComplianceError(workItem.id, workItem.fields['System.WorkItemType']);
+    });
+
+    const mockApi = {
+      getWorkItem: vi.fn().mockResolvedValue(bugWorkItem),
+      getComments: vi.fn().mockResolvedValue({ comments: [] }),
+    };
+    vi.mocked(AzureDevOpsClient.getWorkItemTrackingApi).mockResolvedValue(mockApi as any);
+
+    // Should NOT throw
+    await expect(WorkItemService.getWorkItem(42)).resolves.toBeDefined();
+  });
+
+  it('getWorkItem should still work normally for non-blocked types', async () => {
+    vi.mocked(GDPRValidator.validate).mockImplementation(() => { /* no-op: allow */ });
+
+    const featureWorkItem = {
+      id: 99,
+      fields: {
+        'System.Title': 'Add dashboard',
+        'System.Description': 'Full description here',
+        'System.WorkItemType': 'Feature',
+        'System.State': 'New',
+        'System.CreatedDate': '2026-01-01',
+        'System.ChangedDate': '2026-01-01',
+        'System.AreaPath': 'MyProject\\Team Beta',
+        'System.IterationPath': 'MyProject\\Sprint 3',
+      },
+      relations: undefined,
+    };
+
+    const mockApi = {
+      getWorkItem: vi.fn().mockResolvedValue(featureWorkItem),
+      getComments: vi.fn().mockResolvedValue({ comments: [] }),
+    };
+    vi.mocked(AzureDevOpsClient.getWorkItemTrackingApi).mockResolvedValue(mockApi as any);
+
+    const result = await WorkItemService.getWorkItem(99);
+    expect(result.title).toBe('Add dashboard');
+    expect(result.description).toBe('Full description here');
+    expect(result.gdprBlocked).toBeUndefined();
+  });
+
+  it('transformGDPRBlockedWorkItem exposes tags correctly', async () => {
+    vi.mocked(GDPRValidator.validate).mockImplementation((workItem: any) => {
+      throw new GDPRComplianceError(workItem.id, workItem.fields['System.WorkItemType']);
+    });
+
+    const workItemNoTags = {
+      id: 50,
+      fields: {
+        'System.Title': 'No tags bug',
+        'System.WorkItemType': 'Bug',
+        'System.State': 'New',
+        'System.CreatedDate': '2026-01-01',
+        'System.ChangedDate': '2026-01-01',
+        'System.AreaPath': 'Project\\Area',
+        'System.IterationPath': 'Project\\Iteration',
+      },
+      relations: undefined,
+    };
+
+    const mockApi = {
+      getWorkItem: vi.fn().mockResolvedValue(workItemNoTags),
+      getComments: vi.fn().mockResolvedValue({ comments: [] }),
+    };
+    vi.mocked(AzureDevOpsClient.getWorkItemTrackingApi).mockResolvedValue(mockApi as any);
+
+    const result = await WorkItemService.getWorkItem(50);
+    expect(result.tags).toEqual([]);
   });
 });

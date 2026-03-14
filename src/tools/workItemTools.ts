@@ -5,7 +5,7 @@ export const workItemTools = [
   {
     name: 'get_my_work_items',
     description:
-      'Retrieves work items assigned to the current user with status "New" or "In Progress". Returns work items ordered by most recently changed. GDPR-blocked work item types (e.g., Bug) are automatically filtered out. Default limit is 200 items.',
+      'Retrieves work items assigned to the current user with status "New" or "In Progress". Returns work items ordered by most recently changed. GDPR-blocked work item types (e.g., Bug) are included with safe metadata only (title, team, status, tags); sensitive content is redacted. Default limit is 200 items.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -20,7 +20,7 @@ export const workItemTools = [
   {
     name: 'get_work_item',
     description:
-      'Retrieves detailed information about an Azure DevOps work item by ID, including title, description, state, assignee, dates, all custom fields, discussion comments, child item summary, and attachment metadata. Note: Bug work items are blocked by GDPR policy.',
+      'Retrieves detailed information about an Azure DevOps work item by ID, including title, description, state, assignee, dates, all custom fields, discussion comments, child item summary, and attachment metadata. GDPR-blocked types (e.g., Bug) return safe metadata only (title, team, status, tags) with sensitive content redacted.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -88,7 +88,7 @@ export const workItemTools = [
   {
     name: 'get_weekly_work_report',
     description:
-      'Generates a weekly work report for the current user, showing all work items changed in the specified number of days (default: 7). For each work item, returns: ID, title, type, state, number of commits, and time registration value (Schultz.TimeRegistration field). Perfect for management reporting.',
+      'Generates a weekly work report for the current user, showing all work items changed in the specified number of days (default: 7). For each work item, returns: ID, title, type, state, number of commits, and time registration value (Schultz.TimeRegistration field). GDPR-blocked items are included with safe metadata (title, status) but no commits or time registration. Perfect for management reporting.',
     inputSchema: {
       type: 'object',
       properties: {

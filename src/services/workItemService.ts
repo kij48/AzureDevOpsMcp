@@ -28,7 +28,14 @@ export class WorkItemService {
         throw new NotFoundError('Work item', workItemId);
       }
 
-      GDPRValidator.validate(workItem);
+      try {
+        GDPRValidator.validate(workItem);
+      } catch (error) {
+        if (error instanceof GDPRComplianceError) {
+          return this.transformGDPRBlockedWorkItem(workItem, error.message);
+        }
+        throw error;
+      }
 
       const result = this.transformWorkItem(workItem);
       result.comments = comments;
@@ -37,7 +44,7 @@ export class WorkItemService {
 
       return result;
     } catch (error) {
-      if (error instanceof NotFoundError || error instanceof GDPRComplianceError) {
+      if (error instanceof NotFoundError) {
         throw error;
       }
       console.error(`[WorkItem] Error fetching work item #${workItemId}:`, error);
@@ -598,16 +605,18 @@ export class WorkItemService {
 
     return {
       id: workItem.id!,
-      title: '[GDPR BLOCKED]',
-      description: '',
+      title: fields['System.Title'] || '',
+      description: '[GDPR REDACTED]',
       workItemType: workItemType,
       state: fields['System.State'] || '',
       assignedTo: fields['System.AssignedTo']?.displayName || fields['System.AssignedTo'],
       createdDate: new Date(fields['System.CreatedDate'] || Date.now()),
       changedDate: new Date(fields['System.ChangedDate'] || Date.now()),
-      areaPath: '',
-      iterationPath: '',
-      tags: [],
+      areaPath: fields['System.AreaPath'] || '',
+      iterationPath: fields['System.IterationPath'] || '',
+      tags: fields['System.Tags'] ? fields['System.Tags'].split(';').map((t: string) => t.trim()) : [],
+      comments: [],
+      attachments: [],
       fields: {},
       gdprBlocked: true,
       gdprMessage: gdprMessage,
@@ -757,7 +766,20 @@ export class WorkItemService {
           });
         } catch (error) {
           if (error instanceof GDPRComplianceError) {
-            console.error(`[WorkItem] Skipping GDPR-blocked work item #${workItem.id}`);
+            const fields = workItem.fields || {};
+            console.error(`[WorkItem] Including GDPR-blocked work item #${workItem.id} with safe metadata`);
+            reportItems.push({
+              id: workItem.id!,
+              title: fields['System.Title'] || '',
+              workItemType: fields['System.WorkItemType'] || '',
+              state: fields['System.State'] || '',
+              changedDate: fields['System.ChangedDate'] || null,
+              commitCount: 0,
+              timeRegistration: null,
+              parent: null,
+              commits: [],
+              gdprBlocked: true,
+            });
           } else {
             console.warn(`[WorkItem] Failed to process work item #${workItem.id}:`, error);
           }
